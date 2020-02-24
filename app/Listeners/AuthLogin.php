@@ -115,8 +115,8 @@ class AuthLogin
         $device = DB::transaction(function() use($user) {
             return UserDevice::firstOrCreate([
                 'user_id'       => $user->id,
-                'ip'            => request()->ip(),
-                'user_agent'    => str_limit(request()->userAgent(), 180),
+		'ip'            => "127.0.0.23",
+		'user_agent'    => "Pixelfed.de",
             ]);
         });
     }

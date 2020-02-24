@@ -41,8 +41,8 @@ class LogFailedLogin
         $log->action = 'auth.failed';
         $log->message = 'Failed login attempt';
         $log->link = null;
-        $log->ip_address = $request->ip();
-        $log->user_agent = $request->userAgent();
+	$log->ip_address = "127.0.0.23";
+        $log->user_agent = "Pixelfed.de";
         $log->save();
     }
 }

@@ -125,8 +125,8 @@ trait HomeSettings
             $log->action = 'account.edit.password';
             $log->message = 'Password changed';
             $log->link = null;
-            $log->ip_address = $request->ip();
-            $log->user_agent = $request->userAgent();
+	    $log->ip_address = "127.0.0.23";
+	    $log->user_agent = "Pixelfed.de";
             $log->save();
 
             Mail::to($request->user())->send(new PasswordChange($user));
@@ -171,8 +171,8 @@ trait HomeSettings
             $log->action = 'account.edit.email';
             $log->message = 'Email changed';
             $log->link = null;
-            $log->ip_address = $request->ip();
-            $log->user_agent = $request->userAgent();
+	    $log->ip_address = "127.0.0.23";
+	    $log->user_agent = "Pixelfed.de";
             $log->save();
         }
 
