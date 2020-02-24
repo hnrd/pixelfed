@@ -1,3 +1,13 @@
+# pixelfed.de branch
+
+This branch contains adaptations for the instance pixelfed.de.
+Commits are rebased on `dev` regularly and force-pushed, so your
+clone will break on update.
+
+See commit log for changes.
+
+---
+
 <p align="center"><img src="https://pixelfed.nyc3.cdn.digitaloceanspaces.com/logos/pixelfed-full-color.svg" width="300px"></p>
 
 <p align="center">
