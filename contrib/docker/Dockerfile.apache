@@ -81,7 +81,11 @@ RUN curl -o /tmp/composer-setup.php https://getcomposer.org/installer \
      echo RemoteIPTrustedProxy 192.168.0.0/16 ;\
      echo SetEnvIf X-Forwarded-Proto "https" HTTPS=on ;\
     } > /etc/apache2/conf-available/remoteip.conf \
- && a2enconf remoteip \
+ && a2enconf remoteip
+
+#Enforce HTTPS
+RUN sed -i 's#</VirtualHost#SetEnv HTTPS on\n</VirtualHost#' /etc/apache2/sites-enabled/000-default.conf
+
 #Cleanup
   && docker-php-source delete \
   && apt-get autoremove --purge -y \
