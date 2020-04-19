@@ -86,6 +86,9 @@ RUN curl -o /tmp/composer-setup.php https://getcomposer.org/installer \
 #Enforce HTTPS
 RUN sed -i 's#</VirtualHost#SetEnv HTTPS on\n</VirtualHost#' /etc/apache2/sites-enabled/000-default.conf
 
+#APACHE Limit MaxRequestWorkers
+RUN sed -i 's/MaxRequestWorkers.*/MaxRequestWorkers 50/' /etc/apache2/mods-available/mpm_prefork.conf
+
 #Cleanup
   && docker-php-source delete \
   && apt-get autoremove --purge -y \
