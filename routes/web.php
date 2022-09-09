@@ -482,6 +482,7 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 		Route::view('open-source', 'site.opensource')->name('site.opensource');
 		Route::view('banned-instances', 'site.bannedinstances')->name('site.bannedinstances');
 		Route::get('terms', 'SiteController@terms')->name('site.terms');
+		Route::get('legal', 'SiteController@legal')->name('site.legal');
 		Route::get('privacy', 'SiteController@privacy')->name('site.privacy');
 		Route::view('platform', 'site.platform')->name('site.platform');
 		Route::view('language', 'site.language')->name('site.language');

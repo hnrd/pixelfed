@@ -16,4 +16,5 @@ return [
 	'contact-us'	=> 'Kontaktiere uns',
 	'places'		=> 'Orte',
 	'profiles'		=> 'Profile',
+	'legal'                 => 'Impressum',
 ];

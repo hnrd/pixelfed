@@ -94,6 +94,15 @@ class SiteController extends Controller
 		return View::make('site.terms')->with(compact('page'))->render();
 	}
 
+	public function legal(Request $request)
+	{
+		$page = Cache::remember('site:terms', now()->addDays(120), function() {
+			$slug = '/site/legal';
+			return Page::whereSlug($slug)->whereActive(true)->first();
+		});
+		return View::make('site.legal')->with(compact('page'))->render();
+	}
+
 	public function redirectUrl(Request $request)
 	{
 		abort_if(!$request->user(), 404);
