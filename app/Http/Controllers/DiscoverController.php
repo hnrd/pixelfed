@@ -279,16 +279,16 @@ class DiscoverController extends Controller
 		}
 		return [
 			'hashtags' => [
-				'enabled' => false,
+				'enabled' => true,
 			],
 			'memories' => [
-				'enabled' => false,
+				'enabled' => true,
 			],
 			'insights' => [
-				'enabled' => false,
+				'enabled' => true,
 			],
 			'friends' => [
-				'enabled' => false,
+				'enabled' => true,
 			],
 			'server' => [
 				'enabled' => false,
