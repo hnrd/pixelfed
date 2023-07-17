@@ -120,6 +120,7 @@ class RemoteAuthService
         }
 
         return Cache::remember(self::CACHE_KEY . 'domain-compatible:' . $domain, 14400, function() use($domain) {
+	    return true;
             try {
                 $res = Http::timeout(20)->retry(3, 750)->get('https://beagle.pixelfed.net/api/v1/raa/domain?domain=' . $domain);
                 if(!$res->ok()) {
@@ -144,6 +145,7 @@ class RemoteAuthService
 
     public static function lookupWebfingerUses($wf)
     {
+	return 0;
         try {
             $res = Http::timeout(20)->retry(3, 750)->get('https://beagle.pixelfed.net/api/v1/raa/lookup?webfinger=' . $wf);
             if(!$res->ok()) {
@@ -166,6 +168,7 @@ class RemoteAuthService
 
     public static function submitToBeagle($ow, $ou, $dw, $du)
     {
+	return;
         try {
             $url = 'https://beagle.pixelfed.net/api/v1/raa/submit';
             $res = Http::throw()->timeout(10)->get($url, [
