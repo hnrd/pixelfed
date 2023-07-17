@@ -19,19 +19,21 @@ class AccountService
 
 	public static function get($id, $softFail = false)
 	{
-		return Cache::remember(self::CACHE_KEY . $id, 43200, function() use($id, $softFail) {
+		$res = Cache::remember(self::CACHE_KEY . $id, 43200, function() use($id) {
 			$fractal = new Fractal\Manager();
 			$fractal->setSerializer(new ArraySerializer());
 			$profile = Profile::find($id);
-			if(!$profile) {
-				if($softFail) {
-					return null;
-				}
-				abort(404);
+			if(!$profile || $profile->status === 'delete') {
+				return null;
 			}
 			$resource = new Fractal\Resource\Item($profile, new AccountTransformer());
 			return $fractal->createData($resource)->toArray();
-		});	
+		});
+
+		if(!$res) {
+			return $softFail ? null : abort(404);
+		}
+		return $res;
 	}
 
 	public static function getMastodon($id, $softFail = false)
@@ -69,32 +71,35 @@ class AccountService
 
 	public static function del($id)
 	{
+		Cache::forget('pf:activitypub:user-object:by-id:' . $id);
 		return Cache::forget(self::CACHE_KEY . $id);
 	}
 
 	public static function settings($id)
 	{
-		$settings = UserSetting::whereUserId($id)->first();
-		if(!$settings) {
-			return self::defaultSettings();
-		}
-		return collect($settings)
-		->filter(function($item, $key) {
-			return in_array($key, array_keys(self::defaultSettings())) == true;
-		})
-		->map(function($item, $key) {
-			if($key == 'compose_settings') {
-				$cs = self::defaultSettings()['compose_settings'];
-				$ms = is_array($item) ? $item : [];
-				return array_merge($cs, $ms);
+		return Cache::remember('profile:compose:settings:' . $id, 604800, function() use($id) {
+			$settings = UserSetting::whereUserId($id)->first();
+			if(!$settings) {
+				return self::defaultSettings();
 			}
+			return collect($settings)
+			->filter(function($item, $key) {
+				return in_array($key, array_keys(self::defaultSettings())) == true;
+			})
+			->map(function($item, $key) {
+				if($key == 'compose_settings') {
+					$cs = self::defaultSettings()['compose_settings'];
+					$ms = is_array($item) ? $item : [];
+					return array_merge($cs, $ms);
+				}
 
-			if($key == 'other') {
-				$other =  self::defaultSettings()['other'];
-				$mo = is_array($item) ? $item : [];
-				return array_merge($other, $mo);
-			}
-			return $item;
+				if($key == 'other') {
+					$other =  self::defaultSettings()['other'];
+					$mo = is_array($item) ? $item : [];
+					return array_merge($other, $mo);
+				}
+				return $item;
+			});
 		});
 	}
 

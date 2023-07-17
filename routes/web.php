@@ -92,18 +92,107 @@ Route::domain(config('pixelfed.domain.admin'))->prefix('i/admin')->group(functio
 	Route::post('custom-emoji/delete/{id}', 'AdminController@customEmojiDelete');
 	Route::get('custom-emoji/duplicates/{id}', 'AdminController@customEmojiShowDuplicates');
 
+	Route::get('directory/home', 'AdminController@directoryHome')->name('admin.directory');
+
+	Route::get('autospam/home', 'AdminController@autospamHome')->name('admin.autospam');
+
 	Route::prefix('api')->group(function() {
 		Route::get('stats', 'AdminController@getStats');
 		Route::get('accounts', 'AdminController@getAccounts');
 		Route::get('posts', 'AdminController@getPosts');
 		Route::get('instances', 'AdminController@getInstances');
+		Route::post('directory/save', 'AdminController@directoryStore');
+		Route::get('directory/initial-data', 'AdminController@directoryInitialData');
+		Route::get('directory/popular-posts', 'AdminController@directoryGetPopularPosts');
+		Route::post('directory/add-by-id', 'AdminController@directoryGetAddPostByIdSearch');
+		Route::delete('directory/banner-image', 'AdminController@directoryDeleteBannerImage');
+		Route::post('directory/submit', 'AdminController@directoryHandleServerSubmission');
+		Route::post('directory/testimonial/save', 'AdminController@directorySaveTestimonial');
+		Route::post('directory/testimonial/delete', 'AdminController@directoryDeleteTestimonial');
+		Route::post('directory/testimonial/update', 'AdminController@directoryUpdateTestimonial');
+		Route::get('hashtags/stats', 'AdminController@hashtagsStats');
+		Route::get('hashtags/query', 'AdminController@hashtagsApi');
+		Route::get('hashtags/get', 'AdminController@hashtagsGet');
+		Route::post('hashtags/update', 'AdminController@hashtagsUpdate');
+		Route::post('hashtags/clear-trending-cache', 'AdminController@hashtagsClearTrendingCache');
+		Route::get('instances/get', 'AdminController@getInstancesApi');
+		Route::get('instances/stats', 'AdminController@getInstancesStatsApi');
+		Route::get('instances/query', 'AdminController@getInstancesQueryApi');
+		Route::post('instances/update', 'AdminController@postInstanceUpdateApi');
+		Route::post('instances/create', 'AdminController@postInstanceCreateNewApi');
+		Route::post('instances/delete', 'AdminController@postInstanceDeleteApi');
+		Route::post('instances/refresh-stats', 'AdminController@postInstanceRefreshStatsApi');
+		Route::get('instances/download-backup', 'AdminController@downloadBackup');
+		Route::post('instances/import-data', 'AdminController@importBackup');
+		Route::get('reports/stats', 'AdminController@reportsStats');
+		Route::get('reports/all', 'AdminController@reportsApiAll');
+		Route::get('reports/get/{id}', 'AdminController@reportsApiGet');
+		Route::post('reports/handle', 'AdminController@reportsApiHandle');
+		Route::get('reports/spam/all', 'AdminController@reportsApiSpamAll');
+		Route::get('reports/spam/get/{id}', 'AdminController@reportsApiSpamGet');
+		Route::post('reports/spam/handle', 'AdminController@reportsApiSpamHandle');
+		Route::post('autospam/config', 'AdminController@getAutospamConfigApi');
+		Route::post('autospam/reports/closed', 'AdminController@getAutospamReportsClosedApi');
+		Route::post('autospam/train', 'AdminController@postAutospamTrainSpamApi');
+		Route::post('autospam/search/non-spam', 'AdminController@postAutospamTrainNonSpamSearchApi');
+		Route::post('autospam/train/non-spam', 'AdminController@postAutospamTrainNonSpamSubmitApi');
+		Route::post('autospam/tokens/custom', 'AdminController@getAutospamCustomTokensApi');
+		Route::post('autospam/tokens/store', 'AdminController@saveNewAutospamCustomTokensApi');
+		Route::post('autospam/tokens/update', 'AdminController@updateAutospamCustomTokensApi');
+		Route::post('autospam/tokens/export', 'AdminController@exportAutospamCustomTokensApi');
+		Route::post('autospam/config/enable', 'AdminController@enableAutospamApi');
+		Route::post('autospam/config/disable', 'AdminController@disableAutospamApi');
+	});
+});
+
+Route::domain(config('portfolio.domain'))->group(function () {
+	Route::redirect('redirect/home', config('app.url'));
+	Route::get('/', 'PortfolioController@index');
+	Route::post('api/portfolio/self/curated.json', 'PortfolioController@storeCurated');
+	Route::post('api/portfolio/self/settings.json', 'PortfolioController@getSettings');
+	Route::get('api/portfolio/account/settings.json', 'PortfolioController@getAccountSettings');
+	Route::post('api/portfolio/self/update-settings.json', 'PortfolioController@storeSettings');
+	Route::get('api/portfolio/{username}/feed', 'PortfolioController@getFeed');
+
+	Route::prefix(config('portfolio.path'))->group(function() {
+		Route::get('/', 'PortfolioController@index');
+		Route::get('settings', 'PortfolioController@settings')->name('portfolio.settings');
+		Route::post('settings', 'PortfolioController@store');
+		Route::get('{username}/{id}', 'PortfolioController@showPost');
+		Route::get('{username}', 'PortfolioController@show');
+
+		Route::fallback(function () {
+			return view('errors.404');
+		});
 	});
 });
 
 Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofactor', 'localization'])->group(function () {
 	Route::get('/', 'SiteController@home')->name('timeline.personal');
+	Route::redirect('/home', '/')->name('home');
+	Route::get('web/directory', 'LandingController@directoryRedirect');
+	Route::get('web/explore', 'LandingController@exploreRedirect');
 
 	Auth::routes();
+    Route::get('auth/raw/mastodon/start', 'RemoteAuthController@startRedirect');
+    Route::post('auth/raw/mastodon/config', 'RemoteAuthController@getConfig');
+    Route::post('auth/raw/mastodon/domains', 'RemoteAuthController@getAuthDomains');
+    Route::post('auth/raw/mastodon/start', 'RemoteAuthController@start');
+    Route::post('auth/raw/mastodon/redirect', 'RemoteAuthController@redirect');
+    Route::get('auth/raw/mastodon/preflight', 'RemoteAuthController@preflight');
+    Route::get('auth/mastodon/callback', 'RemoteAuthController@handleCallback');
+    Route::get('auth/mastodon/getting-started', 'RemoteAuthController@onboarding');
+    Route::post('auth/raw/mastodon/s/check', 'RemoteAuthController@sessionCheck');
+    Route::post('auth/raw/mastodon/s/prefill', 'RemoteAuthController@sessionGetMastodonData');
+    Route::post('auth/raw/mastodon/s/username-check', 'RemoteAuthController@sessionValidateUsername');
+    Route::post('auth/raw/mastodon/s/email-check', 'RemoteAuthController@sessionValidateEmail');
+    Route::post('auth/raw/mastodon/s/following', 'RemoteAuthController@sessionGetMastodonFollowers');
+    Route::post('auth/raw/mastodon/s/submit', 'RemoteAuthController@handleSubmit');
+    Route::post('auth/raw/mastodon/s/store-bio', 'RemoteAuthController@storeBio');
+    Route::post('auth/raw/mastodon/s/store-avatar', 'RemoteAuthController@storeAvatar');
+    Route::post('auth/raw/mastodon/s/account-to-id', 'RemoteAuthController@accountToId');
+    Route::post('auth/raw/mastodon/s/finish-up', 'RemoteAuthController@finishUp');
+    Route::post('auth/raw/mastodon/s/login', 'RemoteAuthController@handleLogin');
 
 	Route::get('discover', 'DiscoverController@home')->name('discover');
 
@@ -150,8 +239,6 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 			Route::get('profile/{username}/status/{postid}', 'PublicApiController@status');
 			Route::get('profile/{username}/status/{postid}/state', 'PublicApiController@statusState');
 			Route::get('comments/{username}/status/{postId}', 'PublicApiController@statusComments');
-			Route::get('likes/profile/{username}/status/{id}', 'PublicApiController@statusLikes');
-			Route::get('shares/profile/{username}/status/{id}', 'PublicApiController@statusShares');
 			Route::get('status/{id}/replies', 'InternalApiController@statusReplies');
 			Route::post('moderator/action', 'InternalApiController@modAction');
 			Route::get('discover/categories', 'InternalApiController@discoverCategories');
@@ -168,17 +255,12 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 				Route::get('accounts/relationships', 'Api\ApiV1Controller@accountRelationshipsById');
 				Route::get('accounts/search', 'Api\ApiV1Controller@accountSearch');
 				Route::get('accounts/{id}/statuses', 'PublicApiController@accountStatuses');
-				Route::get('accounts/{id}/following', 'PublicApiController@accountFollowing');
-				Route::get('accounts/{id}/followers', 'PublicApiController@accountFollowers');
 				Route::post('accounts/{id}/block', 'Api\ApiV1Controller@accountBlockById');
 				Route::post('accounts/{id}/unblock', 'Api\ApiV1Controller@accountUnblockById');
 				Route::get('statuses/{id}', 'PublicApiController@getStatus');
 				Route::get('accounts/{id}', 'PublicApiController@account');
 				Route::post('avatar/update', 'ApiController@avatarUpdate');
 				Route::get('custom_emojis', 'Api\ApiV1Controller@customEmojis');
-				Route::get('likes', 'ApiController@hydrateLikes');
-				Route::post('media', 'ApiController@uploadMedia');
-				Route::delete('media', 'ApiController@deleteMedia');
 				Route::get('notifications', 'ApiController@notifications');
 				Route::get('timelines/public', 'PublicApiController@publicTimelineApi');
 				Route::get('timelines/home', 'PublicApiController@homeTimelineApi');
@@ -197,8 +279,6 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 				Route::get('discover/profiles', 'DiscoverController@profilesDirectoryApi');
 				Route::get('profile/{username}/status/{postid}', 'PublicApiController@status');
 				Route::get('comments/{username}/status/{postId}', 'PublicApiController@statusComments');
-				Route::get('likes/profile/{username}/status/{id}', 'PublicApiController@statusLikes');
-				Route::get('shares/profile/{username}/status/{id}', 'PublicApiController@statusShares');
 				Route::post('moderator/action', 'InternalApiController@modAction');
 				Route::get('discover/categories', 'InternalApiController@discoverCategories');
 				Route::get('loops', 'DiscoverController@loopsApi');
@@ -244,11 +324,14 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 			Route::post('collection/{id}/publish', 'CollectionController@publish');
 			Route::get('profile/collections/{id}', 'CollectionController@getUserCollections');
 
-			Route::get('compose/location/search', 'ApiController@composeLocationSearch');
 			Route::post('compose/tag/untagme', 'MediaTagController@untagProfile');
-		});
-		Route::group(['prefix' => 'admin'], function () {
-			Route::post('moderate', 'Api\AdminApiController@moderate');
+
+			Route::post('import/ig', 'ImportPostController@store');
+			Route::get('import/ig/config', 'ImportPostController@getConfig');
+			Route::post('import/ig/media', 'ImportPostController@storeMedia');
+			Route::post('import/ig/existing', 'ImportPostController@getImportedFiles');
+			Route::post('import/ig/posts', 'ImportPostController@getImportedPosts');
+			Route::post('import/ig/processing', 'ImportPostController@getProcessingCount');
 		});
 
 		Route::group(['prefix' => 'web/stories'], function () {
@@ -267,6 +350,14 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 			Route::post('v1/crop', 'StoryController@cropPhoto');
 			Route::post('v1/publish', 'StoryController@publishStory');
 			Route::delete('v1/delete/{id}', 'StoryController@apiV1Delete');
+		});
+
+		Route::group(['prefix' => 'portfolio'], function () {
+			Route::post('self/curated.json', 'PortfolioController@storeCurated');
+			Route::post('self/settings.json', 'PortfolioController@getSettings');
+			Route::get('account/settings.json', 'PortfolioController@getAccountSettings');
+			Route::post('self/update-settings.json', 'PortfolioController@storeSettings');
+			Route::get('{username}/feed', 'PortfolioController@getFeed');
 		});
 	});
 
@@ -301,8 +392,6 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 		Route::post('auth/sudo', 'AccountController@sudoModeVerify');
 		Route::get('auth/checkpoint', 'AccountController@twoFactorCheckpoint');
 		Route::post('auth/checkpoint', 'AccountController@twoFactorVerify');
-
-		Route::get('media/preview/{profileId}/{mediaId}/{timestamp}', 'ApiController@showTempMedia')->name('temp-media');
 
 		Route::get('results', 'SearchController@results');
 		Route::post('visibility', 'StatusController@toggleVisibility');
@@ -352,10 +441,12 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 		Route::post('warning', 'AccountInterstitialController@read');
 		Route::get('my2020', 'SeasonalController@yearInReview');
 
+		Route::get('web/my-portfolio', 'PortfolioController@myRedirect');
 		Route::get('web/hashtag/{tag}', 'SpaController@hashtagRedirect');
 		Route::get('web/username/{id}', 'SpaController@usernameRedirect');
 		Route::get('web/post/{id}', 'SpaController@webPost');
 		Route::get('web/profile/{id}', 'SpaController@webProfile');
+
 		Route::get('web/{q}', 'SpaController@index')->where('q', '.*');
 		Route::get('web', 'SpaController@index');
 	});
@@ -368,6 +459,8 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 		Route::get('follow-requests', 'AccountController@followRequests')->name('follow-requests');
 		Route::post('follow-requests', 'AccountController@followRequestHandle');
 		Route::get('follow-requests.json', 'AccountController@followRequestsJson');
+		Route::get('portfolio/{username}.json', 'PortfolioController@getApFeed');
+		Route::get('portfolio/{username}.rss', 'PortfolioController@getRssFeed');
 	});
 
 	Route::group(['prefix' => 'settings'], function () {
@@ -380,8 +473,8 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 		Route::delete('avatar', 'AvatarController@deleteAvatar');
 		Route::get('password', 'SettingsController@password')->name('settings.password')->middleware('dangerzone');
 		Route::post('password', 'SettingsController@passwordUpdate')->middleware('dangerzone');
-		Route::get('email', 'SettingsController@email')->name('settings.email');
-		Route::post('email', 'SettingsController@emailUpdate');
+		Route::get('email', 'SettingsController@email')->name('settings.email')->middleware('dangerzone');
+		Route::post('email', 'SettingsController@emailUpdate')->middleware('dangerzone');
 		Route::get('notifications', 'SettingsController@notifications')->name('settings.notifications');
 		Route::get('privacy', 'SettingsController@privacy')->name('settings.privacy');
 		Route::post('privacy', 'SettingsController@privacyStore');
@@ -509,6 +602,9 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 			Route::view('data-policy', 'site.help.data-policy')->name('help.data-policy');
 			Route::view('labs-deprecation', 'site.help.labs-deprecation')->name('help.labs-deprecation');
 			Route::view('tagging-people', 'site.help.tagging-people')->name('help.tagging-people');
+			Route::view('licenses', 'site.help.licenses')->name('help.licenses');
+			Route::view('instance-max-users-limit', 'site.help.instance-max-users')->name('help.instance-max-users-limit');
+			Route::view('import', 'site.help.import')->name('help.import');
 		});
 		Route::get('newsroom/{year}/{month}/{slug}', 'NewsroomController@show');
 		Route::get('newsroom/archive', 'NewsroomController@archive');
@@ -540,6 +636,15 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
 		Route::get('/{q}', 'InstallController@index')->withoutMiddleware(['web'])->where('q', '.*');
 	});
 
+	Route::group(['prefix' => 'e'], function() {
+		Route::get('terms', 'MobileController@terms');
+		Route::get('privacy', 'MobileController@privacy');
+	});
+
+	Route::get('auth/invite/a/{code}', 'AdminInviteController@index');
+	Route::post('api/v1.1/auth/invite/admin/re', 'AdminInviteController@apiRegister')->middleware('throttle:5,1440');
+
+	Route::get('storage/m/_v2/{pid}/{mhash}/{uhash}/{f}', 'MediaController@fallbackRedirect');
 	Route::get('stories/{username}', 'ProfileController@stories');
 	Route::get('p/{id}', 'StatusController@shortcodeRedirect');
 	Route::get('c/{collection}', 'CollectionController@show');

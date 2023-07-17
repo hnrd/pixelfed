@@ -47,6 +47,10 @@ class StatusService
 			return null;
 		}
 
+		if(!isset($status['account'])) {
+			return null;
+		}
+
         $status['replies_count'] = $status['reply_count'];
 
 		if(config('exp.emc') == false) {
@@ -117,6 +121,9 @@ class StatusService
 	public static function getFull($id, $pid, $publicOnly = true)
 	{
 		$res = self::get($id, $publicOnly);
+		if(!$res || !isset($res['account']) || !isset($res['account']['id'])) {
+			return $res;
+		}
 		$res['relationship'] = RelationshipService::get($pid, $res['account']['id']);
 		return $res;
 	}
@@ -137,9 +144,8 @@ class StatusService
 
 	public static function del($id, $purge = false)
 	{
-		$status = self::get($id);
-
 		if($purge) {
+			$status = self::get($id);
 			if($status && isset($status['account']) && isset($status['account']['id'])) {
 				Cache::forget('profile:embed:' . $status['account']['id']);
 			}
@@ -149,6 +155,7 @@ class StatusService
 			Cache::forget('status:thumb:nsfw1' . $id);
 			Cache::forget('pf:services:sh:id:' . $id);
 			PublicTimelineService::rem($id);
+			NetworkTimelineService::rem($id);
 		}
 
 		Cache::forget(self::key($id, false));

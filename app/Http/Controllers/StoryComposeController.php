@@ -111,7 +111,7 @@ class StoryComposeController extends Controller
 		}
 
 		$storagePath = MediaPathService::story($user->profile);
-		$path = $photo->storeAs($storagePath, Str::random(random_int(2, 12)) . '_' . Str::random(random_int(32, 35)) . '_' . Str::random(random_int(1, 14)) . '.' . $photo->extension());
+		$path = $photo->storePubliclyAs($storagePath, Str::random(random_int(2, 12)) . '_' . Str::random(random_int(32, 35)) . '_' . Str::random(random_int(1, 14)) . '.' . $photo->extension());
 		if(in_array($photo->getMimeType(), ['image/jpeg','image/png'])) {
 			$fpath = storage_path('app/' . $path);
 			$img = Intervention::make($fpath);
@@ -442,8 +442,6 @@ class StoryComposeController extends Controller
 			$n->item_id = $dm->id;
 			$n->item_type = 'App\DirectMessage';
 			$n->action = 'story:react';
-			$n->message = "{$request->user()->username} reacted to your story";
-			$n->rendered = "{$request->user()->username} reacted to your story";
 			$n->save();
 		} else {
 			StoryReactionDeliver::dispatch($story, $status)->onQueue('story');
@@ -516,8 +514,6 @@ class StoryComposeController extends Controller
 			$n->item_id = $dm->id;
 			$n->item_type = 'App\DirectMessage';
 			$n->action = 'story:comment';
-			$n->message = "{$request->user()->username} commented on story";
-			$n->rendered = "{$request->user()->username} commented on story";
 			$n->save();
 		} else {
 			StoryReplyDeliver::dispatch($story, $status)->onQueue('story');

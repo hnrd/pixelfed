@@ -8,6 +8,7 @@ use App\{
 	DirectMessage,
 	Follower,
 	FollowRequest,
+	Instance,
 	Like,
 	Notification,
 	Media,
@@ -24,8 +25,11 @@ use Illuminate\Support\Str;
 use App\Jobs\LikePipeline\LikePipeline;
 use App\Jobs\FollowPipeline\FollowPipeline;
 use App\Jobs\DeletePipeline\DeleteRemoteProfilePipeline;
+use App\Jobs\DeletePipeline\DeleteRemoteStatusPipeline;
 use App\Jobs\StoryPipeline\StoryExpire;
 use App\Jobs\StoryPipeline\StoryFetch;
+use App\Jobs\StatusPipeline\StatusRemoteUpdatePipeline;
+use App\Jobs\ProfilePipeline\HandleUpdateActivity;
 
 use App\Util\ActivityPub\Validator\Accept as AcceptValidator;
 use App\Util\ActivityPub\Validator\Add as AddValidator;
@@ -33,13 +37,16 @@ use App\Util\ActivityPub\Validator\Announce as AnnounceValidator;
 use App\Util\ActivityPub\Validator\Follow as FollowValidator;
 use App\Util\ActivityPub\Validator\Like as LikeValidator;
 use App\Util\ActivityPub\Validator\UndoFollow as UndoFollowValidator;
+use App\Util\ActivityPub\Validator\UpdatePersonValidator;
 
 use App\Services\PollService;
 use App\Services\FollowerService;
+use App\Services\ReblogService;
 use App\Services\StatusService;
 use App\Services\UserFilterService;
 use App\Services\NetworkTimelineService;
 use App\Models\Conversation;
+use App\Models\RemoteReport;
 use App\Jobs\ProfilePipeline\IncrementPostCount;
 use App\Jobs\ProfilePipeline\DecrementPostCount;
 
@@ -120,9 +127,13 @@ class Inbox
 				$this->handleStoryReplyActivity();
 				break;
 
-			// case 'Update':
-			// 	(new UpdateActivity($this->payload, $this->profile))->handle();
-			// 	break;
+			case 'Flag':
+				$this->handleFlagActivity();
+				break;
+
+			case 'Update':
+				$this->handleUpdateActivity();
+				break;
 
 			default:
 				// TODO: decide how to handle invalid verbs.
@@ -176,9 +187,11 @@ class Inbox
 
 		switch($obj['type']) {
 			case 'Story':
-				StoryFetch::dispatchNow($this->payload);
+				StoryFetch::dispatch($this->payload);
 			break;
 		}
+
+		return;
 	}
 
 	public function handleCreateActivity()
@@ -188,10 +201,11 @@ class Inbox
 		if(!$actor || $actor->domain == null) {
 			return;
 		}
+
 		if(!isset($activity['to'])) {
 			return;
 		}
-		$to = $activity['to'];
+		$to = isset($activity['to']) ? $activity['to'] : [];
 		$cc = isset($activity['cc']) ? $activity['cc'] : [];
 
 		if($activity['type'] == 'Question') {
@@ -199,7 +213,9 @@ class Inbox
 			return;
 		}
 
-		if(count($to) == 1 &&
+		if( is_array($to) &&
+			is_array($cc) &&
+			count($to) == 1 &&
 			count($cc) == 0 &&
 			parse_url($to[0], PHP_URL_HOST) == config('pixelfed.domain.app')
 		) {
@@ -216,6 +232,7 @@ class Inbox
 			}
 			$this->handleNoteCreate();
 		}
+		return;
 	}
 
 	public function handleNoteReply()
@@ -263,14 +280,24 @@ class Inbox
 			return;
 		}
 
-		if($actor->followers()->count() == 0) {
-			return;
+		if($actor->followers_count == 0) {
+            if(config('federation.activitypub.ingest.store_notes_without_followers')) {
+            } else if(FollowerService::followerCount($actor->id, true) == 0) {
+				return;
+			}
 		}
 
+		$hasUrl = isset($activity['url']);
 		$url = isset($activity['url']) ? $activity['url'] : $activity['id'];
 
-		if(Status::whereUrl($url)->exists()) {
-			return;
+		if($hasUrl) {
+			if(Status::whereUri($url)->exists()) {
+				return;
+			}
+		} else {
+			if(Status::whereObjectUrl($url)->exists()) {
+				return;
+			}
 		}
 
 		Helpers::storeStatus(
@@ -285,10 +312,20 @@ class Inbox
 	{
 		$activity = $this->payload['object'];
 		$actor = $this->actorFirstOrCreate($this->payload['actor']);
+
+		if(!$actor) {
+			return;
+		}
+
 		$status = Helpers::statusFetch($activity['inReplyTo']);
+
+		if(!$status) {
+			return;
+		}
+
 		$poll = $status->poll;
 
-		if(!$status || !$poll) {
+		if(!$poll) {
 			return;
 		}
 
@@ -450,8 +487,6 @@ class Inbox
 			$notification->profile_id = $profile->id;
 			$notification->actor_id = $actor->id;
 			$notification->action = 'dm';
-			$notification->message = $dm->toText();
-			$notification->rendered = $dm->toHtml();
 			$notification->item_id = $dm->id;
 			$notification->item_type = "App\DirectMessage";
 			$notification->save();
@@ -464,9 +499,14 @@ class Inbox
 	{
 		$actor = $this->actorFirstOrCreate($this->payload['actor']);
 		$target = $this->actorFirstOrCreate($this->payload['object']);
-		if(!$actor || $actor->domain == null || $target->domain !== null) {
+		if(!$actor || !$target) {
 			return;
 		}
+
+		if($actor->domain == null || $target->domain !== null) {
+			return;
+		}
+
 		if(
 			Follower::whereProfileId($actor->id)
 				->whereFollowingId($target->id)
@@ -478,10 +518,10 @@ class Inbox
 			return;
 		}
 
-        $blocks = UserFilterService::blocks($target->id);
-        if($blocks && in_array($actor->id, $blocks)) {
-            return;
-        }
+		$blocks = UserFilterService::blocks($target->id);
+		if($blocks && in_array($actor->id, $blocks)) {
+			return;
+		}
 
 		if($target->is_private == true) {
 			FollowRequest::updateOrCreate([
@@ -519,6 +559,8 @@ class Inbox
 			Cache::forget('profile:following_count:'.$target->id);
 			Cache::forget('profile:following_count:'.$actor->id);
 		}
+
+		return;
 	}
 
 	public function handleAnnounceActivity()
@@ -530,20 +572,16 @@ class Inbox
 			return;
 		}
 
-		if(Helpers::validateLocalUrl($activity) == false) {
-			return;
-		}
-
 		$parent = Helpers::statusFetch($activity);
 
-		if(empty($parent)) {
+		if(!$parent || empty($parent)) {
 			return;
 		}
 
-        $blocks = UserFilterService::blocks($parent->profile_id);
-        if($blocks && in_array($actor->id, $blocks)) {
-            return;
-        }
+		$blocks = UserFilterService::blocks($parent->profile_id);
+		if($blocks && in_array($actor->id, $blocks)) {
+			return;
+		}
 
 		$status = Status::firstOrCreate([
 			'profile_id' => $actor->id,
@@ -551,18 +589,22 @@ class Inbox
 			'type' => 'share'
 		]);
 
-		Notification::firstOrCreate([
-			'profile_id' => $parent->profile->id,
-			'actor_id' => $actor->id,
-			'action' => 'share',
-			'message' => $status->replyToText(),
-			'rendered' => $status->replyToHtml(),
-			'item_id' => $parent->id,
-			'item_type' => 'App\Status'
-		]);
+		Notification::firstOrCreate(
+			[
+				'profile_id' => $parent->profile_id,
+				'actor_id' => $actor->id,
+				'action' => 'share',
+				'item_id' => $parent->id,
+				'item_type' => 'App\Status',
+			]
+		);
 
-		$parent->reblogs_count = $parent->shares()->count();
+		$parent->reblogs_count = $parent->reblogs_count + 1;
 		$parent->save();
+
+		ReblogService::addPostReblog($parent->profile_id, $status->id);
+
+		return;
 	}
 
 	public function handleAcceptActivity()
@@ -605,6 +647,8 @@ class Inbox
 		FollowPipeline::dispatch($follower);
 
 		$request->delete();
+
+		return;
 	}
 
 	public function handleDeleteActivity()
@@ -622,10 +666,15 @@ class Inbox
 			if(!$profile || $profile->private_key != null) {
 				return;
 			}
-			DeleteRemoteProfilePipeline::dispatchNow($profile);
+			DeleteRemoteProfilePipeline::dispatch($profile)->onQueue('inbox');
 			return;
 		} else {
-			if(!isset($obj['id'], $this->payload['object'], $this->payload['object']['id'])) {
+			if(!isset(
+				$obj['id'],
+				$this->payload['object'],
+				$this->payload['object']['id'],
+				$this->payload['object']['type']
+			)) {
 				return;
 			}
 			$type = $this->payload['object']['type'];
@@ -643,7 +692,7 @@ class Inbox
 						if(!$profile || $profile->private_key != null) {
 							return;
 						}
-						DeleteRemoteProfilePipeline::dispatchNow($profile);
+						DeleteRemoteProfilePipeline::dispatch($profile)->onQueue('inbox');
 						return;
 					break;
 
@@ -653,25 +702,12 @@ class Inbox
 							return;
 						}
 						$status = Status::whereProfileId($profile->id)
-							->whereUri($id)
-							->orWhere('url', $id)
-							->orWhere('object_url', $id)
+							->whereObjectUrl($id)
 							->first();
 						if(!$status) {
 							return;
 						}
-						NetworkTimelineService::del($status->id);
-						StatusService::del($status->id, true);
-						Notification::whereActorId($profile->id)
-							->whereItemType('App\Status')
-							->whereItemId($status->id)
-							->forceDelete();
-						$status->directMessage()->delete();
-						$status->media()->delete();
-						$status->likes()->delete();
-						$status->shares()->delete();
-						$status->delete();
-                        DecrementPostCount::dispatch($profile->id)->onQueue('low');
+						DeleteRemoteStatusPipeline::dispatch($status)->onQueue('high');
 						return;
 					break;
 
@@ -681,6 +717,7 @@ class Inbox
 					if($story) {
 						StoryExpire::dispatch($story)->onQueue('story');
 					}
+					return;
 					break;
 
 				default:
@@ -688,6 +725,7 @@ class Inbox
 					break;
 			}
 		}
+		return;
 	}
 
 	public function handleLikeActivity()
@@ -708,10 +746,10 @@ class Inbox
 			return;
 		}
 
-        $blocks = UserFilterService::blocks($status->profile_id);
-        if($blocks && in_array($profile->id, $blocks)) {
-            return;
-        }
+		$blocks = UserFilterService::blocks($status->profile_id);
+		if($blocks && in_array($profile->id, $blocks)) {
+			return;
+		}
 
 		$like = Like::firstOrCreate([
 			'profile_id' => $profile->id,
@@ -719,7 +757,7 @@ class Inbox
 		]);
 
 		if($like->wasRecentlyCreated == true) {
-			$status->likes_count = $status->likes()->count();
+			$status->likes_count = $status->likes_count + 1;
 			$status->save();
 			LikePipeline::dispatch($like);
 		}
@@ -737,6 +775,9 @@ class Inbox
 		$profile = self::actorFirstOrCreate($actor);
 		$obj = $this->payload['object'];
 
+		if(!$profile) {
+			return;
+		}
 		// TODO: Some implementations do not inline the object, skip for now
 		if(!$obj || !is_array($obj) || !isset($obj['type'])) {
 			return;
@@ -750,17 +791,23 @@ class Inbox
 				if(is_array($obj) && isset($obj['object'])) {
 					$obj = $obj['object'];
 				}
-				if(!is_string($obj) || !Helpers::validateLocalUrl($obj)) {
+				if(!is_string($obj)) {
 					return;
 				}
-				$status = Status::whereUri($obj)->exists();
+				if(Helpers::validateLocalUrl($obj)) {
+					$parsedId = last(explode('/', $obj));
+					$status = Status::find($parsedId);
+				} else {
+					$status = Status::whereUri($obj)->first();
+				}
 				if(!$status) {
 					return;
 				}
 				Status::whereProfileId($profile->id)
 					->whereReblogOfId($status->id)
-					->forceDelete();
-				Notification::whereProfileId($status->profile->id)
+					->delete();
+				ReblogService::removePostReblog($profile->id, $status->id);
+				Notification::whereProfileId($status->profile_id)
 					->whereActorId($profile->id)
 					->whereAction('share')
 					->whereItemId($status->reblog_of_id)
@@ -789,14 +836,22 @@ class Inbox
 				break;
 
 			case 'Like':
-				$status = Helpers::statusFirstOrFetch($obj['object']);
+				$objectUri = $obj['object'];
+				if(!is_string($objectUri)) {
+					if(is_array($objectUri) && isset($objectUri['id']) && is_string($objectUri['id'])) {
+						$objectUri = $objectUri['id'];
+					} else {
+						return;
+					}
+				}
+				$status = Helpers::statusFirstOrFetch($objectUri);
 				if(!$status) {
 					return;
 				}
 				Like::whereProfileId($profile->id)
 					->whereStatusId($status->id)
 					->forceDelete();
-				Notification::whereProfileId($status->profile->id)
+				Notification::whereProfileId($status->profile_id)
 					->whereActorId($profile->id)
 					->whereAction('like')
 					->whereItemId($status->id)
@@ -859,6 +914,8 @@ class Inbox
 			$story->view_count++;
 			$story->save();
 		}
+
+		return;
 	}
 
 	public function handleStoryReactionActivity()
@@ -965,9 +1022,9 @@ class Inbox
 		$n->item_id = $dm->id;
 		$n->item_type = 'App\DirectMessage';
 		$n->action = 'story:react';
-		$n->message = "{$actorProfile->username} reacted to your story";
-		$n->rendered = "{$actorProfile->username} reacted to your story";
 		$n->save();
+
+		return;
 	}
 
 	public function handleStoryReplyActivity()
@@ -1074,8 +1131,107 @@ class Inbox
 		$n->item_id = $dm->id;
 		$n->item_type = 'App\DirectMessage';
 		$n->action = 'story:comment';
-		$n->message = "{$actorProfile->username} commented on story";
-		$n->rendered = "{$actorProfile->username} commented on story";
 		$n->save();
+
+		return;
+	}
+
+	public function handleFlagActivity()
+	{
+		if(!isset(
+			$this->payload['id'],
+			$this->payload['type'],
+			$this->payload['actor'],
+			$this->payload['object']
+		)) {
+			return;
+		}
+
+		$id = $this->payload['id'];
+		$actor = $this->payload['actor'];
+
+		if(Helpers::validateLocalUrl($id) || parse_url($id, PHP_URL_HOST) !== parse_url($actor, PHP_URL_HOST)) {
+			return;
+		}
+
+		$content = isset($this->payload['content']) ? Purify::clean($this->payload['content']) : null;
+		$object = $this->payload['object'];
+
+		if(empty($object) || (!is_array($object) && !is_string($object))) {
+			return;
+		}
+
+		if(is_array($object) && count($object) > 100) {
+			return;
+		}
+
+		$objects = collect([]);
+		$accountId = null;
+
+		foreach($object as $objectUrl) {
+			if(!Helpers::validateLocalUrl($objectUrl)) {
+				continue;
+			}
+
+			if(str_contains($objectUrl, '/users/')) {
+				$username = last(explode('/', $objectUrl));
+				$profileId = Profile::whereUsername($username)->first();
+				if($profileId) {
+					$accountId = $profileId->id;
+				}
+			} else if(str_contains($objectUrl, '/p/')) {
+				$postId = last(explode('/', $objectUrl));
+				$objects->push($postId);
+			} else {
+				continue;
+			}
+		}
+
+		if(!$accountId || !$objects->count()) {
+			return;
+		}
+
+		$instanceHost = parse_url($id, PHP_URL_HOST);
+
+		$instance = Instance::updateOrCreate([
+			'domain' => $instanceHost
+		]);
+
+		$report = new RemoteReport;
+		$report->status_ids = $objects->toArray();
+		$report->comment = $content;
+		$report->account_id = $accountId;
+		$report->uri = $id;
+		$report->instance_id = $instance->id;
+		$report->report_meta = [
+			'actor' => $actor,
+			'object' => $object
+		];
+		$report->save();
+
+		return;
+	}
+
+	public function handleUpdateActivity()
+	{
+		$activity = $this->payload['object'];
+
+		if(!isset($activity['type'], $activity['id'])) {
+			return;
+		}
+
+		if(!Helpers::validateUrl($activity['id'])) {
+			return;
+		}
+
+		if($activity['type'] === 'Note') {
+			if(Status::whereObjectUrl($activity['id'])->exists()) {
+				StatusRemoteUpdatePipeline::dispatch($activity);
+			}
+		} else if ($activity['type'] === 'Person') {
+			if(UpdatePersonValidator::validate($this->payload)) {
+				HandleUpdateActivity::dispatch($this->payload)->onQueue('low');
+			}
+		}
 	}
 }

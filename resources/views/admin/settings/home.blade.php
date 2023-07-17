@@ -13,6 +13,9 @@
 			<a class="nav-link font-weight-bold active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home" aria-selected="true"><i class="fas fa-home"></i></a>
 		</li>
 		<li class="nav-item border-none">
+			<a class="nav-link font-weight-bold px-4" id="landing-tab" data-toggle="tab" href="#landing" role="tab" aria-controls="landing">Landing</a>
+		</li>
+		<li class="nav-item border-none">
 			<a class="nav-link font-weight-bold px-4" id="brand-tab" data-toggle="tab" href="#brand" role="tab" aria-controls="brand">Brand</a>
 		</li>
 		{{-- <li class="nav-item border-none">
@@ -140,6 +143,51 @@
 				<p class="help-text small text-muted mt-3 mb-0">Longer description of instance used on about page.</p>
 			</div>
 		</div> --}}
+	</div>
+
+	<div class="tab-pane" id="landing" role="tabpanel" aria-labelledby="landing-tab">
+		<div class="form-group mb-0">
+			<div class="ml-n4 mr-n2 p-3 border-top border-bottom">
+				<p class="mb-0 small">Configure your landing page</p>
+			</div>
+		</div>
+		<div class="form-group mb-0">
+			<div class="ml-n4 mr-n2 p-3 border-bottom">
+				<p class="font-weight-bold text-muted">Discovery</p>
+
+				<div class="my-3">
+					<div class="custom-control custom-checkbox">
+						<input type="checkbox" class="custom-control-input" id="show_directory" name="show_directory" {{ config_cache('instance.landing.show_directory') ? 'checked' : ''}}>
+						<label class="custom-control-label font-weight-bold" for="show_directory">Show Directory</label>
+					</div>
+				</div>
+
+				<div class="my-3">
+					<div class="custom-control custom-checkbox">
+						<input type="checkbox" class="custom-control-input" id="show_explore_feed" name="show_explore_feed" {{ config_cache('instance.landing.show_explore') ? 'checked' : ''}}>
+						<label class="custom-control-label font-weight-bold" for="show_explore_feed">Show Explore Feed</label>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="form-group mb-0">
+			<div class="ml-n4 mr-n2 p-3 border-bottom">
+				<p class="font-weight-bold text-muted">Admin Account</p>
+
+				<div class="my-3">
+					<select class="custom-select" name="admin_account_id" style="max-width: 300px;">
+						<option selected disabled>Select an admin account</option>
+						@foreach($availableAdmins as $acct)
+							<option
+								value="{{ $acct->profile_id }}" {!! $currentAdmin && $currentAdmin['id'] == $acct->profile_id ? 'selected' : null !!}
+								>
+								<span class="font-weight-bold">&commat;{{ $acct->username }}</span>
+							</option>
+						@endforeach
+					</select>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<div class="tab-pane" id="brand" role="tabpanel" aria-labelledby="brand-tab">

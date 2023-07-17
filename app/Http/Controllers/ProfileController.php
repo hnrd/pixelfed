@@ -7,11 +7,13 @@ use Auth;
 use Cache;
 use DB;
 use View;
+use App\AccountInterstitial;
 use App\Follower;
 use App\FollowRequest;
 use App\Profile;
 use App\Story;
 use App\User;
+use App\UserSetting;
 use App\UserFilter;
 use League\Fractal;
 use App\Services\AccountService;
@@ -42,8 +44,21 @@ class ProfileController extends Controller
 			->whereUsername($username)
 			->firstOrFail();
 
+
 		if($request->wantsJson() && config_cache('federation.activitypub.enabled')) {
 			return $this->showActivityPub($request, $user);
+		}
+
+		$aiCheck = Cache::remember('profile:ai-check:spam-login:' . $user->id, 86400, function() use($user) {
+			$exists = AccountInterstitial::whereUserId($user->user_id)->where('is_spam', 1)->count();
+			if($exists) {
+				return true;
+			}
+
+			return false;
+		});
+		if($aiCheck) {
+			return redirect('/login');
 		}
 		return $this->buildProfile($request, $user);
 	}
@@ -187,10 +202,12 @@ class ProfileController extends Controller
 		abort_if(!config_cache('federation.activitypub.enabled'), 404);
 		abort_if($user->domain, 404);
 
-		$fractal = new Fractal\Manager();
-		$resource = new Fractal\Resource\Item($user, new ProfileTransformer);
-		$res = $fractal->createData($resource)->toArray();
-		return response(json_encode($res['data']))->header('Content-Type', 'application/activity+json');
+		return Cache::remember('pf:activitypub:user-object:by-id:' . $user->id, 3600, function() use($user) {
+			$fractal = new Fractal\Manager();
+			$resource = new Fractal\Resource\Item($user, new ProfileTransformer);
+			$res = $fractal->createData($resource)->toArray();
+			return response(json_encode($res['data']))->header('Content-Type', 'application/activity+json');
+		});
 	}
 
 	public function showAtomFeed(Request $request, $user)
@@ -201,36 +218,77 @@ class ProfileController extends Controller
 
 		abort_if(!$pid, 404);
 
-		$profile = AccountService::get($pid);
+		$profile = AccountService::get($pid, true);
 
 		abort_if(!$profile || $profile['locked'] || !$profile['local'], 404);
 
-		$items = DB::table('statuses')
-			->whereProfileId($pid)
-			->whereVisibility('public')
-			->whereType('photo')
-			->orderByDesc('id')
-			->take(10)
-			->get()
-			->map(function($status) {
-				return StatusService::get($status->id);
-			})
-			->filter(function($status) {
-				return $status &&
-					isset($status['account']) &&
-					isset($status['media_attachments']) &&
-					count($status['media_attachments']);
-			})
-			->values();
-		$permalink = config('app.url') . "/users/{$profile['username']}.atom";
-		$headers = ['Content-Type' => 'application/atom+xml'];
+		$aiCheck = Cache::remember('profile:ai-check:spam-login:' . $profile['id'], 86400, function() use($profile) {
+			$uid = User::whereProfileId($profile['id'])->first();
+			if(!$uid) {
+				return true;
+			}
+			$exists = AccountInterstitial::whereUserId($uid->id)->where('is_spam', 1)->count();
+			if($exists) {
+				return true;
+			}
 
-		if($items && $items->count()) {
-			$headers['Last-Modified'] = now()->parse($items->first()['created_at'])->toRfc7231String();
-		}
+			return false;
+		});
+
+		abort_if($aiCheck, 404);
+
+		$enabled = Cache::remember('profile:atom:enabled:' . $profile['id'], 84600, function() use ($profile) {
+			$uid = User::whereProfileId($profile['id'])->first();
+			if(!$uid) {
+				return false;
+			}
+			$settings = UserSetting::whereUserId($uid->id)->first();
+			if(!$settings) {
+				return false;
+			}
+
+			return $settings->show_atom;
+		});
+
+		abort_if(!$enabled, 404);
+
+		$data = Cache::remember('pf:atom:user-feed:by-id:' . $profile['id'], 900, function() use($pid, $profile) {
+			$items = DB::table('statuses')
+				->whereProfileId($pid)
+				->whereVisibility('public')
+				->whereType('photo')
+				->orderByDesc('id')
+				->take(10)
+				->get()
+				->map(function($status) {
+					return StatusService::get($status->id);
+				})
+				->filter(function($status) {
+					return $status &&
+						isset($status['account']) &&
+						isset($status['media_attachments']) &&
+						count($status['media_attachments']);
+				})
+				->values();
+			$permalink = config('app.url') . "/users/{$profile['username']}.atom";
+			$headers = ['Content-Type' => 'application/atom+xml'];
+
+			if($items && $items->count()) {
+				$headers['Last-Modified'] = now()->parse($items->first()['created_at'])->toRfc7231String();
+			}
+
+			return compact('items', 'permalink', 'headers');
+		});
+		abort_if(!$data || !isset($data['items']) || !isset($data['permalink']), 404);
 		return response()
-			->view('atom.user', compact('profile', 'items', 'permalink'))
-			->withHeaders($headers);
+			->view('atom.user',
+				[
+					'profile' => $profile,
+					'items' => $data['items'],
+					'permalink' => $data['permalink']
+				]
+			)
+			->withHeaders($data['headers']);
 	}
 
 	public function meRedirect()
@@ -258,6 +316,19 @@ class ProfileController extends Controller
 			->first();
 
 		if(!$profile) {
+			return response($res)->withHeaders(['X-Frame-Options' => 'ALLOWALL']);
+		}
+
+		$aiCheck = Cache::remember('profile:ai-check:spam-login:' . $profile->id, 86400, function() use($profile) {
+			$exists = AccountInterstitial::whereUserId($profile->user_id)->where('is_spam', 1)->count();
+			if($exists) {
+				return true;
+			}
+
+			return false;
+		});
+
+		if($aiCheck) {
 			return response($res)->withHeaders(['X-Frame-Options' => 'ALLOWALL']);
 		}
 

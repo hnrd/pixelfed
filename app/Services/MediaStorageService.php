@@ -12,9 +12,11 @@ use App\Media;
 use App\Profile;
 use App\User;
 use GuzzleHttp\Client;
+use App\Services\AccountService;
 use App\Http\Controllers\AvatarController;
 use GuzzleHttp\Exception\RequestException;
 use App\Jobs\MediaPipeline\MediaDeletePipeline;
+use Illuminate\Support\Arr;
 
 class MediaStorageService {
 
@@ -41,27 +43,16 @@ class MediaStorageService {
 			return false;
 		}
 
-		$h = $r->getHeaders();
+        $h = Arr::mapWithKeys($r->getHeaders(), function($item, $key) {
+            return [strtolower($key) => last($item)];
+        });
 
-		if (isset($h['content-length']) && isset($h['content-type'])) {
-			if(empty($h['content-length']) || empty($h['content-type'])) {
-				return false;
-			}
-			$len = is_array($h['content-length']) ? $h['content-length'][0] : $h['content-length'];
-			$mime = is_array($h['content-type']) ? $h['content-type'][0] : $h['content-type'];
-		} else {
-			if (isset($h['Content-Length'], $h['Content-Type']) == false) {
-				return false;
-			}
+        if(!isset($h['content-length'], $h['content-type'])) {
+            return false;
+        }
 
-			if(empty($h['Content-Length']) || empty($h['Content-Type']) ) {
-				return false;
-			}
-
-			$len = is_array($h['Content-Length']) ? $h['Content-Length'][0] : $h['Content-Length'];
-			$mime = is_array($h['Content-Type']) ? $h['Content-Type'][0] : $h['Content-Type'];
-		}
-
+        $len = (int) $h['content-length'];
+        $mime = $h['content-type'];
 
 		if($len < 10 || $len > ((config_cache('pixelfed.max_photo_size') * 1000))) {
 			return false;
@@ -76,7 +67,9 @@ class MediaStorageService {
 	protected function cloudStore($media)
 	{
 		if($media->remote_media == true) {
-			(new self())->remoteToCloud($media);
+			if(config('media.storage.remote.cloud')) {
+				(new self())->remoteToCloud($media);
+			}
 		} else {
 			(new self())->localToCloud($media);
 		}
@@ -105,6 +98,8 @@ class MediaStorageService {
 		$media->save();
 		if($media->status_id) {
 			Cache::forget('status:transformer:media:attachments:' . $media->status_id);
+			MediaService::del($media->status_id);
+			StatusService::del($media->status_id, false);
 		}
 	}
 
@@ -173,7 +168,7 @@ class MediaStorageService {
 		$file = $disk->putFileAs($base, new File($tmpName), $path, 'public');
 		$permalink = $disk->url($file);
 
-		$media->media_path = $base . $path;
+		$media->media_path = $file;
 		$media->cdn_url = $permalink;
 		$media->original_sha256 = $hash;
 		$media->replicated_at = now();
@@ -186,7 +181,7 @@ class MediaStorageService {
 		unlink($tmpName);
 	}
 
-	protected function fetchAvatar($avatar, $local = false)
+	protected function fetchAvatar($avatar, $local = false, $skipRecentCheck = false)
 	{
 		$url = $avatar->remote_url;
 		$driver = $local ? 'local' : config('filesystems.cloud');
@@ -202,6 +197,7 @@ class MediaStorageService {
 		}
 
 		$mimes = [
+			'application/octet-stream',
 			'image/jpeg',
 			'image/png',
 		];
@@ -209,9 +205,14 @@ class MediaStorageService {
 		$mime = $head['mime'];
 		$max_size = (int) config('pixelfed.max_avatar_size') * 1000;
 
-		if($avatar->last_fetched_at && $avatar->last_fetched_at->gt(now()->subDay())) {
-			return;
+		if(!$skipRecentCheck) {
+			if($avatar->last_fetched_at && $avatar->last_fetched_at->gt(now()->subDay())) {
+				return;
+			}
 		}
+
+		Cache::forget('avatar:' . $avatar->profile_id);
+		AccountService::del($avatar->profile_id);
 
 		// handle pleroma edge case
 		if(Str::endsWith($mime, '; charset=utf-8')) {
@@ -226,32 +227,41 @@ class MediaStorageService {
 			return;
 		}
 
-		if($avatar->size && $head['length'] == $avatar->size) {
-			return;
-		}
-
 		$base = ($local ? 'public/cache/' : 'cache/') . 'avatars/' . $avatar->profile_id;
 		$ext = $head['mime'] == 'image/jpeg' ? 'jpg' : 'png';
-		$path = Str::random(20) . '_avatar.' . $ext;
+		$path = 'avatar_' . strtolower(Str::random(random_int(3,6))) . '.' . $ext;
 		$tmpBase = storage_path('app/remcache/');
 		$tmpPath = 'avatar_' . $avatar->profile_id . '-' . $path;
 		$tmpName = $tmpBase . $tmpPath;
-		$data = file_get_contents($url, false, null, 0, $head['length']);
+		$data = @file_get_contents($url, false, null, 0, $head['length']);
+		if(!$data) {
+			return;
+		}
 		file_put_contents($tmpName, $data);
+
+		$mimeCheck = Storage::mimeType('remcache/' . $tmpPath);
+
+		if(!$mimeCheck || !in_array($mimeCheck, ['image/png', 'image/jpeg'])) {
+			$avatar->last_fetched_at = now();
+			$avatar->save();
+			unlink($tmpName);
+			return;
+		}
 
 		$disk = Storage::disk($driver);
 		$file = $disk->putFileAs($base, new File($tmpName), $path, 'public');
 		$permalink = $disk->url($file);
 
-		$avatar->media_path = $base . $path;
+		$avatar->media_path = $base . '/' . $path;
 		$avatar->is_remote = true;
-		$avatar->cdn_url = $permalink;
+		$avatar->cdn_url = $local ? config('app.url') . $permalink : $permalink;
 		$avatar->size = $head['length'];
 		$avatar->change_count = $avatar->change_count + 1;
 		$avatar->last_fetched_at = now();
 		$avatar->save();
 
 		Cache::forget('avatar:' . $avatar->profile_id);
+		AccountService::del($avatar->profile_id);
 
 		unlink($tmpName);
 	}
@@ -261,6 +271,6 @@ class MediaStorageService {
 		if(!$confirm) {
 			return;
 		}
-		MediaDeletePipeline::dispatch($media);
+		MediaDeletePipeline::dispatch($media)->onQueue('mmo');
 	}
 }

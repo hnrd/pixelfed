@@ -23,6 +23,7 @@ use App\Http\Controllers\Settings\{
 };
 use App\Jobs\DeletePipeline\DeleteAccountPipeline;
 use App\Jobs\MediaPipeline\MediaSyncLicensePipeline;
+use App\Services\AccountService;
 
 class SettingsController extends Controller
 {
@@ -80,14 +81,12 @@ class SettingsController extends Controller
 
 	public function dataImport()
 	{
-		abort_if(!config_cache('pixelfed.import.instagram.enabled'), 404);
 		return view('settings.import.home');
 	}
 
 	public function dataImportInstagram()
 	{
-		abort_if(!config_cache('pixelfed.import.instagram.enabled'), 404);
-		return view('settings.import.instagram.home');
+		abort(404);
 	}
 
 	public function developers()
@@ -136,6 +135,8 @@ class SettingsController extends Controller
 		abort_if($user->is_admin, 403);
 		$profile = $user->profile;
 		$ts = Carbon::now()->addMonth();
+		$user->email = $user->id;
+		$user->password = '';
 		$user->status = 'delete';
 		$profile->status = 'delete';
 		$user->delete_after = $ts;
@@ -143,8 +144,9 @@ class SettingsController extends Controller
 		$user->save();
 		$profile->save();
 		Cache::forget('profiles:private');
+		AccountService::del($profile->id);
 		Auth::logout();
-		DeleteAccountPipeline::dispatch($user)->onQueue('high');
+		DeleteAccountPipeline::dispatch($user)->onQueue('low');
 		return redirect('/');
 	}
 
@@ -303,7 +305,7 @@ class SettingsController extends Controller
 		}
 
 		if($changed) {
-			$setting->compose_settings = json_encode($compose);
+			$setting->compose_settings = $compose;
 			$setting->save();
 			Cache::forget('profile:compose:settings:' . $request->user()->id);
 		}

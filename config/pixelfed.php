@@ -23,7 +23,7 @@ return [
 	| This value is the version of your Pixelfed instance.
 	|
 	*/
-	'version' => '0.11.3',
+	'version' => '0.11.8',
 
 	/*
 	|--------------------------------------------------------------------------
@@ -198,7 +198,8 @@ return [
 	| Allow a maximum number of user accounts. Default: off
 	|
 	*/
-	'max_users' => env('PF_MAX_USERS', false),
+    'max_users' => env('PF_MAX_USERS', 1000),
+    'enforce_max_users' => env('PF_ENFORCE_MAX_USERS', true),
 
 	/*
 	|--------------------------------------------------------------------------
@@ -255,10 +256,17 @@ return [
 		]
 	],
 
-	'oauth_enabled' => env('OAUTH_ENABLED', false),
+	'oauth_enabled' => env('OAUTH_ENABLED', true),
 
 	'bouncer' => [
 		'enabled' => env('PF_BOUNCER_ENABLED', false),
+
+		'cloud_ips' => [
+			'ban_logins' => env('PF_BOUNCER_BAN_CLOUD_LOGINS', false),
+			'ban_signups' => env('PF_BOUNCER_BAN_CLOUD_SIGNUPS', false),
+			'ban_api' => env('PF_BOUNCER_BAN_CLOUD_API', false),
+			'ban_api_strict_mode' => env('PF_BOUNCER_BAN_CLOUD_API_STRICT_MODE', false),
+		],
 	],
 
 	/*
@@ -276,4 +284,6 @@ return [
 	'media_fast_process' => env('PF_MEDIA_FAST_PROCESS', true),
 
 	'max_altext_length' => env('PF_MEDIA_MAX_ALTTEXT_LENGTH', 1000),
+
+	'allow_app_registration' => env('PF_ALLOW_APP_REGISTRATION', true),
 ];

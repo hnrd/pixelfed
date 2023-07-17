@@ -10,6 +10,13 @@ use App\Services\AccountService;
 class AvatarObserver
 {
     /**
+     * Handle events after all transactions are committed.
+     *
+     * @var bool
+     */
+    public $afterCommit = true;
+
+    /**
      * Handle the avatar "created" event.
      *
      * @param  \App\Avatar  $avatar
@@ -58,7 +65,7 @@ class AvatarObserver
             @unlink($path);
         }
 
-        if($avatar->cdn_url) {
+        if(config_cache('pixelfed.cloud_storage')) {
             $disk = Storage::disk(config('filesystems.cloud'));
             $base = Str::startsWith($avatar->media_path, 'cache/avatars/');
             if($base && $disk->exists($avatar->media_path)) {

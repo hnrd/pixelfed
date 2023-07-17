@@ -368,8 +368,6 @@ class DirectMessageController extends Controller
 			$notification->profile_id = $recipient->id;
 			$notification->actor_id = $profile->id;
 			$notification->action = 'dm';
-			$notification->message = $dm->toText();
-			$notification->rendered = $dm->toHtml();
 			$notification->item_id = $dm->id;
 			$notification->item_type = "App\DirectMessage";
 			$notification->save();
@@ -602,7 +600,7 @@ class DirectMessageController extends Controller
 		}
 
 		$storagePath = MediaPathService::get($user, 2) . Str::random(8);
-		$path = $photo->store($storagePath);
+		$path = $photo->storePublicly($storagePath);
 		$hash = \hash_file('sha256', $photo);
 
 		abort_if(MediaBlocklistService::exists($hash) == true, 451);
@@ -704,12 +702,14 @@ class DirectMessageController extends Controller
 		->limit(8)
 		->get()
 		->map(function($r) {
+			$acct = AccountService::get($r->id);
 			return [
 				'local' => (bool) !$r->domain,
 				'id' => (string) $r->id,
 				'name' => $r->username,
 				'privacy' => true,
-				'avatar' => $r->avatarUrl()
+				'avatar' => $r->avatarUrl(),
+				'account' => $acct
 			];
 		});
 

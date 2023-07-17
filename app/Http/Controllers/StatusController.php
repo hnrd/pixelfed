@@ -29,7 +29,7 @@ use App\Services\ReblogService;
 
 class StatusController extends Controller
 {
-	public function show(Request $request, $username, int $id)
+	public function show(Request $request, $username, $id)
 	{
 		// redirect authed users to Metro 2.0
 		if($request->user()) {
@@ -115,9 +115,24 @@ class StatusController extends Controller
 			->whereIsPrivate(false)
 			->whereUsername($username)
 			->first();
+
 		if(!$profile) {
 			$content = view('status.embed-removed');
 			return response($content)->header('X-Frame-Options', 'ALLOWALL');
+		}
+
+		$aiCheck = Cache::remember('profile:ai-check:spam-login:' . $profile->id, 86400, function() use($profile) {
+			$exists = AccountInterstitial::whereUserId($profile->user_id)->where('is_spam', 1)->count();
+			if($exists) {
+				return true;
+			}
+
+			return false;
+		});
+
+		if($aiCheck) {
+			$res = view('status.embed-removed');
+			return response($res)->withHeaders(['X-Frame-Options' => 'ALLOWALL']);
 		}
 		$status = Status::whereProfileId($profile->id)
 			->whereNull('uri')
@@ -219,11 +234,21 @@ class StatusController extends Controller
 			$u->save();
 		}
 
-		Cache::forget('_api:statuses:recent_9:' . $status->profile_id);
-		Cache::forget('profile:status_count:' . $status->profile_id);
-		Cache::forget('profile:embed:' . $status->profile_id);
-		StatusService::del($status->id, true);
-		if ($status->profile_id == $user->profile->id || $user->is_admin == true) {
+		if($status->in_reply_to_id) {
+			$parent = Status::find($status->in_reply_to_id);
+			if($parent && ($parent->profile_id == $user->profile_id) || ($status->profile_id == $user->profile_id) || $user->is_admin) {
+				Cache::forget('_api:statuses:recent_9:' . $status->profile_id);
+				Cache::forget('profile:status_count:' . $status->profile_id);
+				Cache::forget('profile:embed:' . $status->profile_id);
+				StatusService::del($status->id, true);
+				Cache::forget('profile:status_count:'.$status->profile_id);
+				StatusDelete::dispatch($status);
+			}
+		} else if ($status->profile_id == $user->profile_id || $user->is_admin == true) {
+			Cache::forget('_api:statuses:recent_9:' . $status->profile_id);
+			Cache::forget('profile:status_count:' . $status->profile_id);
+			Cache::forget('profile:embed:' . $status->profile_id);
+			StatusService::del($status->id, true);
 			Cache::forget('profile:status_count:'.$status->profile_id);
 			StatusDelete::dispatch($status);
 		}

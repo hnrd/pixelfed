@@ -1,6 +1,7 @@
 <?php
 
 return [
+	'force_https_urls' => env('FORCE_HTTPS_URLS', true),
 
 	'description' => env('INSTANCE_DESCRIPTION', 'Pixelfed - Photo sharing for everyone'),
 
@@ -22,12 +23,17 @@ return [
 	'email' => env('INSTANCE_CONTACT_EMAIL'),
 
 	'timeline' => [
+		'home' => [
+			'cached' => env('PF_HOME_TIMELINE_CACHE', false),
+			'cache_ttl' => env('PF_HOME_TIMELINE_CACHE_TTL', 900)
+		],
+
 		'local' => [
 			'is_public' => env('INSTANCE_PUBLIC_LOCAL_TIMELINE', false)
 		],
 
 		'network' => [
-			'cached' => env('PF_NETWORK_TIMELINE') ? env('INSTANCE_NETWORK_TIMELINE_CACHED', false) : false,
+			'cached' => env('PF_NETWORK_TIMELINE') ? env('INSTANCE_NETWORK_TIMELINE_CACHED', true) : false,
 			'cache_dropoff' => env('INSTANCE_NETWORK_TIMELINE_CACHE_DROPOFF', 100),
 			'max_hours_old' => env('INSTANCE_NETWORK_TIMELINE_CACHE_MAX_HOUR_INGEST', 6)
 		]
@@ -83,7 +89,7 @@ return [
 		]
 	],
 
-	'enable_cc' => env('ENABLE_CONFIG_CACHE', false),
+	'enable_cc' => env('ENABLE_CONFIG_CACHE', true),
 
 	'has_legal_notice' => env('INSTANCE_LEGAL_NOTICE', false),
 
@@ -91,4 +97,36 @@ return [
 		'profile' => env('INSTANCE_PROFILE_EMBEDS', true),
 		'post' => env('INSTANCE_POST_EMBEDS', true),
 	],
+
+	'hide_nsfw_on_public_feeds' => env('PF_HIDE_NSFW_ON_PUBLIC_FEEDS', false),
+
+	'avatar' => [
+		'local_to_cloud' => env('PF_LOCAL_AVATAR_TO_CLOUD', false)
+	],
+
+	'admin_invites' => [
+		'enabled' => env('PF_ADMIN_INVITES_ENABLED', true)
+	],
+
+	'user_filters' => [
+		'max_user_blocks' => env('PF_MAX_USER_BLOCKS', 50),
+		'max_user_mutes' => env('PF_MAX_USER_MUTES', 50)
+	],
+
+	'reports' => [
+		'email' => [
+			'enabled' => env('INSTANCE_REPORTS_EMAIL_ENABLED', false),
+			'to' => env('INSTANCE_REPORTS_EMAIL_ADDRESSES'),
+			'autospam' => env('INSTANCE_REPORTS_EMAIL_AUTOSPAM', false)
+		]
+	],
+
+	'landing' => [
+		'show_directory' => env('INSTANCE_LANDING_SHOW_DIRECTORY', true),
+		'show_explore' => env('INSTANCE_LANDING_SHOW_EXPLORE', true),
+	],
+
+	'banner' => [
+		'blurhash' => env('INSTANCE_BANNER_BLURHASH', 'UzJR]l{wHZRjM}R%XRkCH?X9xaWEjZj]kAjt')
+	]
 ];
