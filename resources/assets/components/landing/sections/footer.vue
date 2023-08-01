@@ -7,7 +7,7 @@
 			<div class="spacer">·</div>
 			<a href="/site/privacy">Privacy</a>
 			<div class="spacer">·</div>
-			<a href="https://pixelfed.org/mobile-apps" target="_blank">Mobile Apps</a>
+			<a href="/site/legal-notice">Impressum / Legal Notice</a>
 		</div>
 
 		<div class="footer-component-attribution">
