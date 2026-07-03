@@ -106,7 +106,7 @@ class RemoteOidcController extends Controller
             'email' => $data['email'],
             'password' => Hash::make(Str::password()),
             'email_verified_at' => now(),
-            'app_register_ip' => request()->ip(),
+            'app_register_ip' => sha1(request()->ip()),
             'register_source' => 'oidc',
         ])));
 

@@ -116,8 +116,8 @@ class AuthLogin
         $device = DB::transaction(function () use ($user) {
             return UserDevice::firstOrCreate([
                 'user_id' => $user->id,
-                'ip' => request()->ip(),
-                'user_agent' => str_limit(request()->userAgent(), 180),
+                'ip' => sha1(request()->ip()),
+                'user_agent' => sha1(str_limit(request()->userAgent(), 180)),
             ]);
         });
     }

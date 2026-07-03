@@ -144,8 +144,8 @@ trait HomeSettings
             ? 'Password changed and all sessions revoked'
             : 'Password changed';
         $log->link = null;
-        $log->ip_address = $request->ip();
-        $log->user_agent = $request->userAgent();
+        $log->ip_address = sha1($request->ip());
+        $log->user_agent = sha1($request->userAgent());
         $log->save();
 
         Mail::to($request->user())->send(new PasswordChange($user));
@@ -197,8 +197,8 @@ trait HomeSettings
             $log->action = 'account.edit.email';
             $log->message = 'Email changed';
             $log->link = null;
-            $log->ip_address = $request->ip();
-            $log->user_agent = $request->userAgent();
+            $log->ip_address = sha1($request->ip());
+            $log->user_agent = sha1($request->userAgent());
             $log->save();
         }
 

@@ -429,7 +429,7 @@ class CuratedRegisterController extends Controller
         $cr->email = $request->email;
         $cr->username = $request->session()->get('cur-reg.form-username');
         $cr->password = bcrypt($request->session()->get('cur-reg.form-password'));
-        $cr->ip_address = $request->ip();
+        $cr->ip_address = sha1($request->ip());
         $cr->reason_to_join = $request->session()->get('cur-reg.form-reason');
         $cr->verify_code = Str::random(40);
         $cr->save();

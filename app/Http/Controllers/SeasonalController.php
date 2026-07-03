@@ -231,8 +231,8 @@ class SeasonalController extends Controller
                 'action' => 'seasonal.my2020.view',
             ],
             [
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->userAgent(),
+                'ip_address' => sha1($request->ip()),
+                'user_agent' => sha1($request->userAgent()),
             ],
         ]);
 

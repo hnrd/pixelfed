@@ -331,7 +331,7 @@ class RemoteAuthController extends Controller
             'webfinger' => $res['_webfinger'],
         ], [
             'software' => 'mastodon',
-            'ip_address' => $request->ip(),
+            'ip_address' => sha1($request->ip()),
             'bearer_token' => $token,
             'verify_credentials' => $res,
             'last_verify_credentials_at' => now(),
@@ -684,7 +684,7 @@ class RemoteAuthController extends Controller
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
             'email_verified_at' => config('remote-auth.mastodon.contraints.skip_email_verification') ? now() : null,
-            'app_register_ip' => request()->ip(),
+            'app_register_ip' => sha1(request()->ip()),
             'register_source' => 'mastodon',
         ])));
 

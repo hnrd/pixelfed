@@ -317,8 +317,8 @@ class ApiV1Dot1Controller extends Controller
         $log->action = 'account.edit.password';
         $log->message = 'Password changed';
         $log->link = null;
-        $log->ip_address = $request->ip();
-        $log->user_agent = $request->userAgent();
+        $log->ip_address = sha1($request->ip());
+        $log->user_agent = sha1($request->userAgent());
         $log->save();
 
         Mail::to($request->user())->send(new PasswordChange($user));
@@ -342,7 +342,7 @@ class ApiV1Dot1Controller extends Controller
             abort_if(BouncerService::checkIp($request->ip()), 404);
         }
         $agent = new Agent;
-        $currentIp = $request->ip();
+        $currentIp = sha1($request->ip());
 
         $activity = AccountLog::whereUserId($user->id)
             ->whereAction('auth.login')
@@ -521,7 +521,7 @@ class ApiV1Dot1Controller extends Controller
             abort_if(BouncerService::checkIp($request->ip()), 404);
         }
 
-        $rl = RateLimiter::attempt('pf:apiv1.1:iar:'.$request->ip(), config('pixelfed.app_registration_rate_limit_attempts', 3), function () {}, config('pixelfed.app_registration_rate_limit_decay', 1800));
+        $rl = RateLimiter::attempt('pf:apiv1.1:iar:'.sha1($request->ip()), config('pixelfed.app_registration_rate_limit_attempts', 3), function () {}, config('pixelfed.app_registration_rate_limit_decay', 1800));
         abort_if(! $rl, 400, 'Too many requests');
 
         $this->validate($request, [
@@ -593,7 +593,7 @@ class ApiV1Dot1Controller extends Controller
         $user->email = $email;
         $user->password = Hash::make($password);
         $user->register_source = 'app';
-        $user->app_register_ip = $request->ip();
+        $user->app_register_ip = sha1($request->ip());
         $user->app_register_token = Str::random(40);
         $user->save();
 
@@ -985,7 +985,7 @@ class ApiV1Dot1Controller extends Controller
         if ($ipRateLimiting) {
             $userLimit = (int) config_cache('api.rate-limits.v1Dot1.accounts.usernameToId.ip_limit');
             $userDecay = (int) config_cache('api.rate-limits.v1Dot1.accounts.usernameToId.ip_decay');
-            $userKey = 'pf:apiv1.1:acctU2ID:byIp:'.$request->ip();
+            $userKey = 'pf:apiv1.1:acctU2ID:byIp:'.sha1($request->ip());
 
             if (RateLimiter::tooManyAttempts($userKey, $userLimit)) {
                 $limits = [

@@ -80,8 +80,8 @@ class UserEmailForgotController extends Controller
     {
         UserEmailForgot::create([
             'user_id' => $user->id,
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
+            'ip_address' => sha1($request->ip()),
+            'user_agent' => sha1($request->userAgent()),
             'email_sent_at' => now()
         ]);
 

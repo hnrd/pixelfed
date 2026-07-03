@@ -38,8 +38,8 @@ class LogFailedLogin
         $log->action = 'auth.failed';
         $log->message = 'Failed login attempt';
         $log->link = null;
-        $log->ip_address = $request->ip();
-        $log->user_agent = $request->userAgent();
+        $log->ip_address = sha1($request->ip());
+        $log->user_agent = sha1($request->userAgent());
         $log->save();
     }
 }

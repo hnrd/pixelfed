@@ -234,7 +234,7 @@ class AppRegisterController extends Controller
             'username' => $username,
             'email' => $email,
             'password' => Hash::make($password),
-            'app_register_ip' => request()->ip(),
+            'app_register_ip' => sha1(request()->ip()),
             'register_source' => 'app',
             'email_verified_at' => now(),
         ]);
