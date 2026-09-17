@@ -147,6 +147,7 @@ class RemoteAuthService
 
     public static function isDomainCompatible($domain = false)
     {
+        return true;
         if (! $domain) {
             return false;
         }
@@ -180,6 +181,7 @@ class RemoteAuthService
 
     public static function lookupWebfingerUses($wf)
     {
+        return 0;
         try {
             $res = Http::timeout(20)->retry(3, 750)->get('https://beagle.pixelfed.net/api/v1/raa/lookup?webfinger='.$wf);
             if (! $res->ok()) {
@@ -202,6 +204,7 @@ class RemoteAuthService
 
     public static function submitToBeagle($ow, $ou, $dw, $du)
     {
+        return;
         try {
             $url = 'https://beagle.pixelfed.net/api/v1/raa/submit';
             $res = Http::throw()->timeout(10)->get($url, [
