@@ -20,7 +20,7 @@
     <div class="card shadow-none border">
       <div class="card-header font-weight-bold bg-white">Confirm Email Address</div>
       <div class="card-body">
-        <p class="lead text-break">You need to confirm your email address <span class="font-weight-bold">{{Auth::user()->email}}</span> before you can proceed.</p>
+        <p class="lead text-break">You need to confirm your email address before you can proceed.</p>
         @if(!$recentSent)
         <form method="post">
           @csrf
