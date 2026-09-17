@@ -7,7 +7,7 @@
   </div>
   <hr>
   <section>
-    <p class="lead">{{__('site.the_software_that_powers_this_website_is_called')}} <a href="https://pixelfed.org">Pixelfed</a> {{__('site.and_anyone_can')}} <a href="https://github.com/pixelfed/pixelfed">{{__('site.download')}}</a> {{__('site.opensource.or')}} <a href="https://github.com/pixelfed/pixelfed">{{__('site.view')}}</a> {{__('site.the_source_code_and_run_their_own_instance')}}</p>
+    <p class="lead">This website runs a modified version of the Pixelfed software, which you can find on <a href="https://git.zknt.org/chris/pixelfed/">Git</a> (original, unmodified software: <a href="https://github.com/pixelfed/pixelfed/">here on Github</a></p>
   </section>
 @endsection
 
