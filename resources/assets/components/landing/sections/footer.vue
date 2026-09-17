@@ -7,9 +7,7 @@
             <div class="spacer">·</div>
             <a href="/site/privacy">{{ $t('navmenu.privacy') }}</a>
             <div class="spacer">·</div>
-            <a v-if="config.show_legal_notice_link" href="/site/legal-notice">{{ $t('navmenu.legalNotice') }}</a>
-            <div v-if="config.show_legal_notice_link" class="spacer">·</div>
-            <a href="https://pixelfed.org/mobile-apps" target="_blank">{{ $t('navmenu.mobileApps') }}</a>
+            <a href="/site/legal-notice">Impressum / Legal Notice</a>
         </div>
 
         <div class="footer-component-attribution">
