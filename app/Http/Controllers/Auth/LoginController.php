@@ -533,7 +533,7 @@ class LoginController extends Controller
             ?: PendingLoginService::email($request);
 
         return Str::transliterate(
-            Str::lower((string) $email).'|'.$request->ip()
+            Str::lower((string) $email).'|'.sha1($request->ip())
         );
     }
 
@@ -604,8 +604,8 @@ class LoginController extends Controller
         $log->action = $action;
         $log->message = $message;
         $log->link = null;
-        $log->ip_address = $request->ip();
-        $log->user_agent = $request->userAgent();
+        $log->ip_address = sha1($request->ip());
+        $log->user_agent = sha1($request->userAgent());
         $log->save();
     }
 }

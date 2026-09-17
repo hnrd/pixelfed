@@ -132,11 +132,11 @@ class AppServiceProvider extends ServiceProvider
         }
 
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(512)->by($request->user()?->id ?: $request->ip());
+            return Limit::perMinute(512)->by($request->user()?->id ?: sha1($request->ip()));
         });
 
         RateLimiter::for('app-signup', function (Request $request) {
-            return Limit::perDay(100)->by($request->ip());
+            return Limit::perDay(100)->by(sha1($request->ip()));
         });
 
         RateLimiter::for('app-code-verify', function (Request $request) {
@@ -147,17 +147,17 @@ class AppServiceProvider extends ServiceProvider
                 : 'missing';
 
             return [
-                Limit::perHour(20)->by('app-code-verify:ip:'.$request->ip()),
+                Limit::perHour(20)->by('app-code-verify:ip:'.sha1($request->ip())),
                 Limit::perHour(10)->by('app-code-verify:email:'.$emailKey),
             ];
         });
 
         RateLimiter::for('app-code-resend', function (Request $request) {
-            return Limit::perHour(10)->by($request->ip());
+            return Limit::perHour(10)->by(sha1($request->ip()));
         });
 
         RateLimiter::for('account-lookup', function (Request $request) {
-            return Limit::perDay(50)->by($request->ip());
+            return Limit::perDay(50)->by(sha1($request->ip()));
         });
 
         RateLimiter::for('oauth-pat', function (Request $request) {
@@ -165,7 +165,7 @@ class AppServiceProvider extends ServiceProvider
 
             $actor = $user
                 ? 'u:'.$user->getAuthIdentifier()
-                : 'ip:'.$request->ip();
+                : 'ip:'.sha1($request->ip());
 
             $tooMany = function (Request $request, array $headers) {
                 return response()->json([
