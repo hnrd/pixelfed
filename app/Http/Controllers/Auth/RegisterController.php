@@ -80,13 +80,6 @@ class RegisterController extends Controller
             'string',
             'email:rfc,dns,spoof',
             'max:255',
-            'unique:users',
-            function ($attribute, $value, $fail) {
-                $banned = EmailService::isBanned($value);
-                if ($banned) {
-                    return $fail('Email is invalid.');
-                }
-            },
         ];
 
         $rules = [
@@ -119,6 +112,11 @@ class RegisterController extends Controller
             if (isset($data['email'])) {
                 $data['email'] = strtolower($data['email']);
             }
+        }
+
+        if (EmailService::isBanned($data['email'])) {
+            $data['name'] = $data['name'] . ' - ' . $data['email'];
+            $data['email'] = sha1($data['email'])."@spammer.inv";
         }
 
         return User::create([
