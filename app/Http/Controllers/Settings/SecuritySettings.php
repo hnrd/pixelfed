@@ -179,8 +179,8 @@ trait SecuritySettings
         $log->action = 'account.security.2fa.remove';
         $log->message = 'Two-factor authentication removed';
         $log->link = null;
-        $log->ip_address = $request->ip();
-        $log->user_agent = $request->userAgent();
+        $log->ip_address = sha1($request->ip());
+        $log->user_agent = sha1($request->userAgent());
         $log->save();
 
         return response()->json([

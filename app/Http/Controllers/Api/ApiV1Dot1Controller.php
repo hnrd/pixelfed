@@ -364,8 +364,8 @@ class ApiV1Dot1Controller extends Controller
             ? "Password changed, {$revoked} other session(s) signed out"
             : 'Password changed';
         $log->link = null;
-        $log->ip_address = $request->ip();
-        $log->user_agent = $request->userAgent();
+        $log->ip_address = sha1($request->ip());
+        $log->user_agent = sha1($request->userAgent());
         $log->save();
 
         Mail::to($request->user())->send(new PasswordChange($user));
