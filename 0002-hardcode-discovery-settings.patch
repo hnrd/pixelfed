@@ -1,0 +1,38 @@
+From f467a9ce21e0a6efc086413d958432d0cc7f2af9 Mon Sep 17 00:00:00 2001
+From: chris <cg@ritona.int.zknt.org>
+Date: Thu, 17 Sep 2026 11:36:23 +0200
+Subject: [PATCH 2/6] hardcode discovery settings
+
+force enable discovery (as dynamic settings are not saved properly)
+---
+ app/Http/Controllers/DiscoverController.php | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/app/Http/Controllers/DiscoverController.php b/app/Http/Controllers/DiscoverController.php
+index 29c0c2297..b2e7a9550 100644
+--- a/app/Http/Controllers/DiscoverController.php
++++ b/app/Http/Controllers/DiscoverController.php
+@@ -291,16 +291,16 @@ class DiscoverController extends Controller
+ 
+         return [
+             'hashtags' => [
+-                'enabled' => false,
++                'enabled' => true,
+             ],
+             'memories' => [
+-                'enabled' => false,
++                'enabled' => true,
+             ],
+             'insights' => [
+-                'enabled' => false,
++                'enabled' => true,
+             ],
+             'friends' => [
+-                'enabled' => false,
++                'enabled' => true,
+             ],
+             'server' => [
+                 'enabled' => false,
+-- 
+2.54.0
+
